@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "public": false,
+  "buildCommand": "echo 'No build required'",
+  "outputDirectory": "./",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "ALLOWALL" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors *" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    }
+  ]
+}
