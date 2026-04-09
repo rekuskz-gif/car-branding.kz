@@ -5,26 +5,36 @@ const TG_CHAT = "376719975";
 async function loadPrompt() {
   try {
     const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
-    const response = await fetch(url);
+
+    const response = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      headers: {
+        "User-Agent": "Mozilla/5.0"
+      }
+    });
 
     if (!response.ok) {
+      console.log("Google Doc fetch failed:", response.status);
       return "Ты Катя, AI консультант car-branding.kz";
     }
 
-    let text = await response.text();
-    text = text.trim();
+    const text = (await response.text()).trim();
+    console.log("Prompt loaded, length:", text.length);
 
     return text || "Ты Катя, AI консультант car-branding.kz";
+
   } catch (e) {
+    console.error("loadPrompt error:", e.message);
     return "Ты Катя, AI консультант car-branding.kz";
   }
 }
 
 async function sendToTelegram(messages) {
   try {
-    let text = "📋 История чата Кати:\n\n";
+    let text = "📋 Чат с Катей (car-branding.kz):\n\n";
 
-    for (let msg of messages) {
+    for (const msg of messages) {
       if (msg.role === "user") {
         text += `👤 Клиент: ${msg.content}\n\n`;
       } else {
@@ -39,13 +49,10 @@ async function sendToTelegram(messages) {
     await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: TG_CHAT,
-        text: text
-      })
+      body: JSON.stringify({ chat_id: TG_CHAT, text })
     });
   } catch (e) {
-    console.error("Telegram error:", e);
+    console.error("Telegram error:", e.message);
   }
 }
 
@@ -59,7 +66,7 @@ module.exports = async (req, res) => {
 
   try {
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "API Key not configured" });
+    if (!apiKey) return res.status(500).json({ error: "No API key" });
 
     const { messages } = req.body;
     if (!messages || !Array.isArray(messages)) {
@@ -68,7 +75,7 @@ module.exports = async (req, res) => {
 
     const systemPrompt = await loadPrompt();
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
@@ -79,19 +86,17 @@ module.exports = async (req, res) => {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 400,
         system: systemPrompt,
-        messages: messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        }))
+        messages: messages.map(({ role, content }) => ({ role, content }))
       })
     });
 
-    const data = await response.json();
+    const data = await aiResponse.json();
 
-    if (!response.ok) {
-      return res.status(response.status).json({
+    if (!aiResponse.ok) {
+      console.error("Claude API error:", data);
+      return res.status(aiResponse.status).json({
         error: data.error?.message || "API Error",
-        choices: [{ message: { content: "Ошибка API" } }]
+        choices: [{ message: { content: "Ошибка API. Попробуйте позже." } }]
       });
     }
 
@@ -101,10 +106,11 @@ module.exports = async (req, res) => {
       await sendToTelegram([...messages, { role: "assistant", content: botMessage }]);
     }
 
-    res.status(200).json({ choices: [{ message: { content: botMessage } }] });
+    return res.status(200).json({ choices: [{ message: { content: botMessage } }] });
 
   } catch (error) {
-    res.status(500).json({
+    console.error("Server error:", error.message);
+    return res.status(500).json({
       error: "Server error",
       choices: [{ message: { content: "Ошибка сервера. Попробуйте позже." } }]
     });
