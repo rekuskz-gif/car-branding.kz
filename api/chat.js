@@ -1,6 +1,6 @@
 const GOOGLE_DOC_ID = "1I1dUd1NHeP69E_rJRx3IYZjTTvgyA8bqUZVlWNXlUEM";
 const TG_TOKEN = "8756759612:AAESbCBXv5N1zB4Ii3UgmmVi-RKoa1skfUU";
-const TG_CHAT = "376719975";
+const TG_CHAT = "-1003730867751";
 
 async function loadPrompt() {
   try {
