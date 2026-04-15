@@ -7,16 +7,23 @@ async function loadPrompt() {
     const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
     const response = await fetch(url);
     
+    console.log("STATUS:", response.status);
+    console.log("URL:", response.url);
+    
     if (!response.ok) {
+      console.log("FAILED - using default");
       return "Ты Катя, AI консультант car-branding.kz";
     }
     
     let text = await response.text();
     text = text.trim();
+    console.log("PROMPT LENGTH:", text.length);
+    console.log("PROMPT START:", text.substring(0, 200));
     
     return text || "Ты Катя, AI консультант car-branding.kz";
     
   } catch (e) {
+    console.error("loadPrompt error:", e.message);
     return "Ты Катя, AI консультант car-branding.kz";
   }
 }
@@ -24,7 +31,6 @@ async function loadPrompt() {
 async function sendToTelegram(messages) {
   try {
     let text = "📋 История чата Кати:\n\n";
-    
     for (let msg of messages) {
       if (msg.role === "user") {
         text += `👤 Клиент: ${msg.content}\n\n`;
@@ -32,14 +38,10 @@ async function sendToTelegram(messages) {
         text += `🤖 Катя: ${msg.content}\n\n`;
       }
     }
-    
     await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        chat_id: TG_CHAT,
-        text: text
-      })
+      body: JSON.stringify({ chat_id: TG_CHAT, text: text })
     });
   } catch (e) {
     console.error("Telegram error:", e);
