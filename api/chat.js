@@ -2,13 +2,12 @@
 require('dotenv').config();
 
 // Используем переменные окружения
-const GOOGLE_DOC_ID = process.env.GOOGLE_DOC_ID;
 const TG_TOKEN = process.env.TG_TOKEN;
 const TG_CHAT = process.env.TG_CHAT;
 
 async function loadPrompt() {
   try {
-    const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
+    const url = `https://docs.google.com/document/d/1wndDcMgXu0I9H679onoXNbLzTlEiBnOzvvtQ7UYU2z4/export?format=txt`;
     const response = await fetch(url, {
       method: "GET",
       redirect: "follow",
