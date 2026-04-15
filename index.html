@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Катя AI консультант</title>
+  <title>Амина AI консультант</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Georgia, serif; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -35,10 +35,10 @@
   <div class="chat">
     <div class="header">
       <div class="avatar">
-        <img src="https://raw.githubusercontent.com/rekuskz-gif/amina-ai/main/amina-icon.png" alt="Катя">
+        <img src="https://raw.githubusercontent.com/rekuskz-gif/amina-ai/main/amina-icon.png" alt="Амина">
       </div>
       <div class="header-info">
-        <div class="name">Катя</div>
+        <div class="name">Амина</div>
         <div class="status">🟢 онлайн</div>
       </div>
     </div>
@@ -65,4 +65,70 @@
       msg.className = "msg " + role;
       msg.innerHTML = linkify(text);
       document.getElementById("messages").appendChild(msg);
-      document.g
+      document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
+    }
+
+    async function typeMessage(text) {
+      const msg = document.createElement("div");
+      msg.className = "msg bot";
+      const content = document.createElement("span");
+      msg.appendChild(content);
+      document.getElementById("messages").appendChild(msg);
+      
+      for (let i = 0; i < text.length; i++) {
+        content.textContent += text[i];
+        
+        const cursor = document.createElement("span");
+        cursor.className = "cursor";
+        msg.appendChild(cursor);
+        
+        await new Promise(resolve => setTimeout(resolve, 20));
+        document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
+        
+        cursor.remove();
+      }
+      
+      // Парсим ссылки после печати
+      content.innerHTML = linkify(content.textContent);
+    }
+
+    async function send() {
+      const input = document.getElementById("input");
+      const text = input.value.trim();
+      if (!text || loading) return;
+
+      loading = true;
+      document.getElementById("sendBtn").disabled = true;
+      input.value = "";
+      add("user", text);
+      history.push({role: "user", content: text});
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({messages: history})
+        });
+
+        const data = await res.json();
+        const reply = data.choices?.[0]?.message?.content || "Ошибка";
+
+        history.push({role: "assistant", content: reply});
+        await typeMessage(reply);
+      } catch (e) {
+        add("bot", "Ошибка соединения");
+      }
+
+      loading = false;
+      document.getElementById("sendBtn").disabled = false;
+    }
+
+    document.getElementById("input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    });
+  </script>
+</body>
+</html>
