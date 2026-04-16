@@ -1,157 +1,327 @@
-// ============================================
-// ФАЙЛ: api/chat.js
-// Это сервер — он принимает сообщения от сайта,
-// отправляет их в Claude AI и возвращает ответ
-// ============================================
+<!DOCTYPE html>
+<!-- Это начало любой HTML страницы — обязательная строка -->
+<html lang="ru">
+<!-- lang="ru" говорит браузеру что сайт на русском -->
 
-// ID документа Google Docs где хранится инструкция для бота
-const GOOGLE_DOC_ID = "1wndDcMgXu0I9H679onoXNbLzTlEiBnOzvvtQ7UYU2z4";
+<head>
+  <!-- HEAD — невидимая часть, настройки страницы -->
+  
+  <!-- Кодировка — чтобы русские буквы отображались правильно -->
+  <meta charset="UTF-8">
+  
+  <!-- Чтобы сайт нормально выглядел на телефоне -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Название во вкладке браузера -->
+  <title>Амина AI консультант</title>
 
-// Токен Телеграм бота (берётся из секретных переменных Vercel)
-const TG_TOKEN = process.env.TG_TOKEN;
+  <style>
+    /* ============================================
+       СТИЛИ — это внешний вид сайта
+       Всё что внутри style — отвечает за цвета,
+       размеры, расположение элементов
+    ============================================ */
 
-// ID чата Телеграм куда слать историю переписки
-const TG_CHAT = process.env.TG_CHAT;
+    /* Убираем отступы у всех элементов по умолчанию */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-// ============================================
-// ФУНКЦИЯ 1: Загружает инструкцию из Google Docs
-// Возвращает текст инструкции для бота
-// ============================================
-async function loadPrompt() {
-  try {
-    // Специальная ссылка чтобы получить документ как чистый текст
-    const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
-    const response = await fetch(url);
-
-    // Если Google Docs не ответил — используем запасной текст
-    if (!response.ok) {
-      return "Ты Катя, консультант car-branding.kz";
+    /* ТЕЛО СТРАНИЦЫ — тёмно-фиолетовый фон */
+    body {
+      font-family: Georgia, serif;
+      /* Градиент — плавный переход цветов слева-направо */
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh; /* Занимает всю высоту экрана */
+      display: flex;
+      align-items: center;     /* По центру по вертикали */
+      justify-content: center; /* По центру по горизонтали */
+      padding: 20px;
     }
 
-    // Убираем лишние пробелы
-    let text = await response.text();
-    text = text.trim();
+    /* ОКНО ЧАТА — белый полупрозрачный прямоугольник */
+    .chat {
+      width: 100%;
+      max-width: 680px;        /* Максимальная ширина */
+      background: rgba(255,255,255,0.05); /* Полупрозрачный белый */
+      border-radius: 24px;     /* Скруглённые углы */
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;  /* Элементы идут сверху вниз */
+      height: 85vh;            /* 85% высоты экрана */
+      box-shadow: 0 8px 32px rgba(167,139,250,0.2); /* Фиолетовая тень */
+    }
 
-    // Если документ пустой — используем запасной текст
-    return text || "Ты Катя, консультант car-branding.kz";
+    /* ШАПКА — верхняя часть с аватаром и именем */
+    .header {
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px; /* Отступ между аватаром и именем */
+      border-bottom: 1px solid rgba(255,255,255,0.1); /* Линия снизу */
+    }
 
-  } catch (e) {
-    // Если совсем что-то сломалось — используем запасной текст
-    return "Ты Катя, консультант car-branding.kz";
-  }
-}
+    /* АВАТАР — круглая картинка */
+    .avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;  /* Делает картинку круглой */
+      border: 2px solid #a78bfa; /* Фиолетовая рамка */
+      overflow: hidden;
+    }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-// ============================================
-// ФУНКЦИЯ 2: Отправляет историю чата в Телеграм
-// Вы будете видеть переписку клиентов у себя в боте
-// ============================================
-async function sendToTelegram(messages) {
-  try {
-    let text = "📋 История чата:\n\n";
+    /* ИМЯ консультанта */
+    .name { color: white; font-weight: bold; }
 
-    for (let msg of messages) {
-      if (msg.role === "user") {
-        text += `👤 Клиент: ${msg.content}\n\n`;
-      } else {
-        text += `🤖 Амина: ${msg.content}\n\n`;
+    /* СТАТУС "онлайн" */
+    .status { color: #a78bfa; font-size: 12px; }
+
+    /* ОБЛАСТЬ СООБЩЕНИЙ — прокручивается когда много сообщений */
+    .messages {
+      flex: 1;           /* Занимает всё свободное место */
+      overflow-y: auto;  /* Прокрутка по вертикали */
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px; /* Отступ между сообщениями */
+    }
+
+    /* ОБЩИЙ СТИЛЬ любого сообщения */
+    .msg {
+      max-width: 75%;    /* Не шире 75% окна */
+      padding: 12px 16px;
+      border-radius: 16px;
+      color: white;
+      white-space: pre-wrap; /* Сохраняет переносы строк */
+      line-height: 1.6;
+      word-break: break-word; /* Длинные слова переносятся */
+    }
+
+    /* СООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ — справа, фиолетовое */
+    .user {
+      align-self: flex-end; /* Прижато к правому краю */
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border-radius: 18px 18px 4px 18px; /* Правый нижний угол острый */
+    }
+
+    /* СООБЩЕНИЕ БОТА — слева, тёмное */
+    .bot {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 18px 18px 18px 4px; /* Левый нижний угол острый */
+    }
+
+    /* ССЫЛКИ внутри сообщений */
+    .msg a { color: #a78bfa; text-decoration: underline; }
+    .msg a:hover { color: #c4b5fd; }
+
+    /* МИГАЮЩИЙ КУРСОР — показывает что бот печатает */
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.2em;
+      background: #a78bfa;
+      margin-left: 2px;
+      animation: blink 0.7s infinite; /* Мигает бесконечно */
+      vertical-align: text-bottom;
+    }
+    /* Анимация мигания */
+    @keyframes blink {
+      0%, 49% { opacity: 1; } /* Видно */
+      50%, 100% { opacity: 0; } /* Невидно */
+    }
+
+    /* НИЖНЯЯ ЧАСТЬ — поле ввода и кнопка */
+    .input-area {
+      display: flex;
+      gap: 10px;
+      padding: 16px;
+      border-top: 1px solid rgba(255,255,255,0.1); /* Линия сверху */
+    }
+
+    /* ПОЛЕ ввода текста */
+    textarea {
+      flex: 1; /* Занимает всё свободное место */
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 10px 14px;
+      color: white;
+      font-size: 15px;
+      resize: none;      /* Нельзя растягивать мышкой */
+      outline: none;     /* Убираем синюю рамку при фокусе */
+      font-family: inherit;
+      min-height: 44px;
+    }
+    /* Текст-подсказка внутри поля */
+    textarea::placeholder { color: rgba(255,255,255,0.3); }
+    /* Рамка когда кликнули на поле */
+    textarea:focus { border-color: rgba(167,139,250,0.5); }
+
+    /* КНОПКА ОТПРАВИТЬ */
+    button {
+      width: 46px;
+      height: 46px;
+      border: none;
+      border-radius: 50%; /* Круглая кнопка */
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: white;
+      cursor: pointer;
+      font-size: 20px;
+    }
+    /* Кнопка увеличивается при наведении */
+    button:hover:not(:disabled) { transform: scale(1.05); }
+    /* Кнопка серая когда заблокирована */
+    button:disabled { background: rgba(124,58,237,0.3); cursor: not-allowed; }
+  </style>
+</head>
+
+<body>
+  <!-- ============================================
+       BODY — видимая часть страницы
+       Всё что здесь — видит пользователь
+  ============================================ -->
+
+  <!-- Главный контейнер чата -->
+  <div class="chat">
+
+    <!-- ШАПКА: аватар + имя + статус -->
+    <div class="header">
+      <div class="avatar">
+        <!-- Картинка загружается с GitHub -->
+        <img src="https://raw.githubusercontent.com/rekuskz-gif/amina-ai/main/amina-icon.png" alt="Амина">
+      </div>
+      <div>
+        <div class="name">Амина</div>
+        <div class="status">🟢 онлайн</div>
+      </div>
+    </div>
+
+    <!-- СООБЩЕНИЯ: сюда JavaScript добавляет сообщения -->
+    <div id="messages" class="messages"></div>
+
+    <!-- ПОЛЕ ВВОДА: пишем сообщение и нажимаем кнопку -->
+    <div class="input-area">
+      <textarea id="input" placeholder="Напишите..."></textarea>
+      <!-- onclick="send()" — при клике запускает функцию send() -->
+      <button onclick="send()" id="sendBtn">↑</button>
+    </div>
+
+  </div>
+
+  <script>
+    /* ============================================
+       JAVASCRIPT — логика чата
+       Отвечает за отправку сообщений и получение ответов
+    ============================================ */
+
+    // История всех сообщений — отправляется боту чтобы он помнил контекст
+    let history = [];
+
+    // Блокировка — true когда бот думает, чтобы не слать два раза
+    let loading = false;
+
+    // ФУНКЦИЯ: превращает ссылки в кликабельные
+    function linkify(text) {
+      return text.replace(
+        /(https?:\/\/[^\s]+)/g,
+        '<a href="$1" target="_blank">$1</a>'
+      );
+    }
+
+    // ФУНКЦИЯ: добавляет сообщение в чат мгновенно
+    function add(role, text) {
+      const msg = document.createElement("div");
+      msg.className = "msg " + role; // "msg user" или "msg bot"
+      msg.innerHTML = linkify(text);
+      document.getElementById("messages").appendChild(msg);
+      // Прокручиваем вниз чтобы видеть новое сообщение
+      document.getElementById("messages").scrollTop = 99999;
+    }
+
+    // ФУНКЦИЯ: печатает текст по одной букве с анимацией
+    async function typeMessage(text) {
+      const msg = document.createElement("div");
+      msg.className = "msg bot";
+      const content = document.createElement("span");
+      msg.appendChild(content);
+      document.getElementById("messages").appendChild(msg);
+
+      // Цикл — добавляем по одной букве
+      for (let i = 0; i < text.length; i++) {
+        content.textContent += text[i];
+        // Добавляем мигающий курсор
+        const cursor = document.createElement("span");
+        cursor.className = "cursor";
+        msg.appendChild(cursor);
+        // Ждём 20 миллисекунд — скорость печатания
+        await new Promise(resolve => setTimeout(resolve, 20));
+        document.getElementById("messages").scrollTop = 99999;
+        // Убираем курсор перед следующей буквой
+        cursor.remove();
       }
+
+      // После печати делаем ссылки кликабельными
+      content.innerHTML = linkify(content.textContent);
     }
 
-    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: TG_CHAT,
-        text: text
-      })
-    });
-  } catch (e) {
-    // Если Телеграм не ответил — просто пишем в лог, не ломаем чат
-    console.error("Telegram error:", e);
-  }
-}
+    // ГЛАВНАЯ ФУНКЦИЯ: отправляет сообщение на сервер
+    async function send() {
+      const input = document.getElementById("input");
+      const text = input.value.trim(); // Убираем пробелы
 
-// ============================================
-// ГЛАВНАЯ ФУНКЦИЯ: Обрабатывает каждое сообщение
-// Сюда приходят запросы с сайта
-// ============================================
-module.exports = async (req, res) => {
+      // Не отправляем если поле пустое или бот ещё думает
+      if (!text || loading) return;
 
-  // Разрешаем запросы с любого сайта
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      // Блокируем кнопку пока ждём ответ
+      loading = true;
+      document.getElementById("sendBtn").disabled = true;
+      input.value = ""; // Очищаем поле ввода
 
-  // Браузер проверяет можно ли слать запросы — говорим да
-  if (req.method === "OPTIONS") return res.status(200).end();
+      // Показываем сообщение пользователя справа
+      add("user", text);
 
-  // Принимаем только POST запросы
-  if (req.method !== "POST") return res.status(405).json({
-    error: "Only POST",
-    version: "2.0",
-    model: "claude-haiku-4-5-20251001"
-  });
+      // Добавляем в историю — бот будет помнить контекст
+      history.push({ role: "user", content: text });
 
-  try {
-    // Берём API ключ Claude из секретных переменных Vercel
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "API Key не настроен" });
+      try {
+        // Отправляем запрос на наш сервер (api/chat.js на Vercel)
+        // Сервер сам обращается к Claude AI и возвращает ответ
+        const res = await fetch("https://car-branding-kz.vercel.app/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history })
+        });
 
-    // Берём историю сообщений из запроса
-    const { messages } = req.body;
-    if (!messages || !Array.isArray(messages)) {
-      return res.status(400).json({ error: "Нет сообщений" });
+        // Читаем ответ от сервера
+        const data = await res.json();
+
+        // Достаём текст ответа бота
+        const reply = data.choices?.[0]?.message?.content || "Ошибка";
+
+        // Добавляем ответ бота в историю
+        history.push({ role: "assistant", content: reply });
+
+        // Показываем ответ с анимацией печатания
+        await typeMessage(reply);
+
+      } catch (e) {
+        // Если сервер не ответил — показываем ошибку
+        add("bot", "Ошибка соединения. Попробуйте позже.");
+      }
+
+      // Разблокируем кнопку
+      loading = false;
+      document.getElementById("sendBtn").disabled = false;
     }
 
-    // Загружаем инструкцию из Google Docs
-    const systemPrompt = await loadPrompt();
-
-    // Отправляем запрос в Claude AI
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001", // название модели
-        max_tokens: 300,                     // максимум 300 слов в ответе
-        system: systemPrompt,                // инструкция для бота
-        messages: messages.map(msg => ({
-          role: msg.role,
-          content: msg.content
-        }))
-      })
+    // Отправка по нажатию Enter
+    // Shift+Enter = просто новая строка (не отправляет)
+    document.getElementById("input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault(); // Не добавляем перенос строки
+        send();
+      }
     });
-
-    const data = await response.json();
-
-    // Если Claude вернул ошибку
-    if (!response.ok) {
-      console.error("Claude API Error:", data);
-      return res.status(response.status).json({
-        error: data.error?.message || "Ошибка Claude API",
-        choices: [{ message: { content: "Извините, произошла ошибка. Попробуйте позже." } }]
-      });
-    }
-
-    // Достаём текст ответа
-    const botMessage = data.content?.[0]?.text || "Извините, не могу ответить сейчас.";
-
-    // Отправляем переписку в Телеграм
-    await sendToTelegram([...messages, { role: "assistant", content: botMessage }]);
-
-    // Отправляем ответ на сайт
-    res.status(200).json({
-      choices: [{ message: { content: botMessage } }]
-    });
-
-  } catch (error) {
-    console.error("Server Error:", error);
-    res.status(500).json({
-      error: "Ошибка сервера",
-      choices: [{ message: { content: "Извините, произошла ошибка. Попробуйте позже." } }]
-    });
-  }
-};
+  </script>
+</body>
+</html>
