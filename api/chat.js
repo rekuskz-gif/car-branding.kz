@@ -39,7 +39,7 @@
       </div>
       <div class="header-info">
         <div class="name">Катя</div>
-        <div class="status">🟢 онлайн</div>
+        <div class="status">🟢 онлайн!</div>
       </div>
     </div>
     <div id="messages" class="messages"></div>
