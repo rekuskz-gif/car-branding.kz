@@ -16,25 +16,6 @@ async function loadPrompt() {
     // Делаем запрос к Google Docs
     const response = await fetch(url);
     
-    // Если Google Docs не ответил — используем запасной текст
-    if (!response.ok) {
-      return "Ты Катя, консультант"; // запасной вариант
-    }
-    
-    // Читаем текст из ответа
-    let text = await response.text();
-    
-    // Убираем лишние пробелы в начале и конце
-    text = text.trim();
-    
-    // Если текст не пустой — возвращаем его, иначе запасной вариант
-    return text || "Ты Катя, консультантz";
-    
-  } catch (e) {
-    // Если вообще что-то сломалось — возвращаем запасной текст
-    return "Ты Катя, консультант";
-  }
-}
 
 // ========== ФУНКЦИЯ 2: Отправка истории чата в Телеграм ==========
 async function sendToTelegram(messages) {
@@ -107,7 +88,7 @@ module.exports = async (req, res) => {
         "content-type": "application/json"
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5", // какую модель использовать
+        model: "claude-haiku-4-5-20251001", // какую модель использовать
         max_tokens: 300,           // максимум 300 слов в ответе
         system: systemPrompt,      // инструкция для бота
         messages: messages.map(msg => ({
