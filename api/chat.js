@@ -135,16 +135,13 @@ ${analysis}
     const botMessage = mainData.content?.[0]?.text || "Ошибка";
     console.log("ОТВЕТ:", botMessage);
 
-    // Отправляем в Телеграм оригинал + перевод
-    await sendToTelegram([...messages, { role: "assistant", content: botMessage }], apiKey);
-
+    // Отвечаем клиенту сразу
     res.status(200).json({ choices: [{ message: { content: botMessage } }] });
+
+    // Телеграм отправляется в фоне — без await!
+    sendToTelegram([...messages, { role: "assistant", content: botMessage }], apiKey);
 
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({
-      error: "Server error",
-      choices: [{ message: { content: "Ошибка сервера" } }]
-    });
-  }
-};
+      er
