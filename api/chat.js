@@ -6,62 +6,27 @@ async function loadPrompt() {
   try {
     const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
     const response = await fetch(url);
-    if (!response.ok) return "Ты Катя - AI консультант car-branding.kz. Отвечай на том языке на котором пишет клиент.";
+    if (!response.ok) return "";
     let text = await response.text();
     text = text.trim();
     console.log("PROMPT LENGTH:", text.length);
-    return text || "Ты Катя - AI консультант car-branding.kz. Отвечай на том языке на котором пишет клиент.";
+    return text;
   } catch (e) {
     console.error("loadPrompt error:", e.message);
-    return "Ты Катя - AI консультант car-branding.kz. Отвечай на том языке на котором пишет клиент.";
+    return "";
   }
 }
 
-async function translateToRussian(text, apiKey) {
+async function sendToTelegram(messages) {
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5",
-        max_tokens: 500,
-        system: "Ты переводчик. Переводи текст на русский язык. Отвечай ТОЛЬКО переводом без пояснений. Если текст уже на русском - верни его без изменений.",
-        messages: [{ role: "user", content: text }]
-      })
-    });
-    const data = await response.json();
-    return data.content?.[0]?.text || text;
-  } catch (e) {
-    return text;
-  }
-}
-
-async function sendToTelegram(messages, apiKey) {
-  try {
-    let text = "📋 История чата Кати:\n\n";
-
+    let text = "📋 История чата:\n\n";
     for (let msg of messages) {
       if (msg.role === "user") {
-        const translation = await translateToRussian(msg.content, apiKey);
-        text += `👤 Клиент: ${msg.content}\n`;
-        if (translation.trim() !== msg.content.trim()) {
-          text += `🌐 Перевод: ${translation}\n`;
-        }
-        text += "\n";
+        text += `👤 Клиент: ${msg.content}\n\n`;
       } else if (msg.role === "assistant") {
-        const translation = await translateToRussian(msg.content, apiKey);
-        text += `🤖 Катя: ${msg.content}\n`;
-        if (translation.trim() !== msg.content.trim()) {
-          text += `🌐 Перевод: ${translation}\n`;
-        }
-        text += "\n";
+        text += `🤖 Бот: ${msg.content}\n\n`;
       }
     }
-
     text += `⏰ ${new Date().toLocaleString("ru-RU", { timeZone: "Asia/Almaty" })}`;
 
     await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
@@ -121,7 +86,7 @@ module.exports = async (req, res) => {
 
     const botMessage = data.content?.[0]?.text || "Ошибка";
 
-    await sendToTelegram([...messages, { role: "assistant", content: botMessage }], apiKey);
+    await sendToTelegram([...messages, { role: "assistant", content: botMessage }]);
 
     res.status(200).json({ choices: [{ message: { content: botMessage } }] });
 
