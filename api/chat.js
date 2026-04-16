@@ -2,22 +2,18 @@ const GOOGLE_DOC_ID = "1wndDcMgXu0I9H679onoXNbLzTlEiBnOzvvtQ7UYU2z4";
 const TG_TOKEN = process.env.TG_TOKEN;
 const TG_CHAT = process.env.TG_CHAT;
 
-const DEFAULT_PROMPT = `Ты Катя - AI консультант компании car-branding.kz.
-Специалист по брендированию автомобилей.
-Отвечай на том языке на котором пишет клиент.`;
-
 async function loadPrompt() {
   try {
     const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
     const response = await fetch(url);
-    if (!response.ok) return DEFAULT_PROMPT;
+    if (!response.ok) return "Ты Катя - AI консультант car-branding.kz. Отвечай на том языке на котором пишет клиент.";
     let text = await response.text();
     text = text.trim();
     console.log("PROMPT LENGTH:", text.length);
-    return text || DEFAULT_PROMPT;
+    return text || "Ты Катя - AI консультант car-branding.kz. Отвечай на том языке на котором пишет клиент.";
   } catch (e) {
     console.error("loadPrompt error:", e.message);
-    return DEFAULT_PROMPT;
+    return "Ты Катя - AI консультант car-branding.kz. Отвечай на том языке на котором пишет клиент.";
   }
 }
 
