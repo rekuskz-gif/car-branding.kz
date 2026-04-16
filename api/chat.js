@@ -1,6 +1,6 @@
 async function sendToTelegram(messages, apiKey) {
   try {
-    // Вся история без перевода
+    // Сообщение 1 — история без перевода
     let text = "📋 История чата:\n\n";
     for (let msg of messages) {
       if (msg.role === "user") {
@@ -9,8 +9,15 @@ async function sendToTelegram(messages, apiKey) {
         text += `🤖 Бот: ${msg.content}\n\n`;
       }
     }
+    text += `⏰ ${new Date().toLocaleString("ru-RU", { timeZone: "Asia/Almaty" })}`;
 
-    // Перевод только последних сообщений
+    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: TG_CHAT, text: text })
+    });
+
+    // Сообщение 2 — перевод отдельно асинхронно
     const lastUser = messages.filter(m => m.role === "user").slice(-1)[0]?.content || "";
     const lastBot = messages.filter(m => m.role === "assistant").slice(-1)[0]?.content || "";
 
@@ -24,23 +31,20 @@ async function sendToTelegram(messages, apiKey) {
       body: JSON.stringify({
         model: "claude-haiku-4-5",
         max_tokens: 300,
-        messages: [{ role: "user", content: `Переведи на русский язык. Верни ТОЛЬКО в таком формате без лишнего:\n👤 Клиент: [перевод]\n🤖 Бот: [перевод]\n\nКлиент: ${lastUser}\nБот: ${lastBot}` }]
+        messages: [{ role: "user", content: `Переведи на русский. Формат:\n👤 Клиент: [перевод]\n🤖 Бот: [перевод]\n\nКлиент: ${lastUser}\nБот: ${lastBot}` }]
       })
     });
     const d = await r.json();
     const translation = d.content?.[0]?.text || "";
 
     if (translation) {
-      text += `🌐 Перевод последних сообщений:\n${translation}\n\n`;
+      await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: TG_CHAT, text: `🌐 Перевод:\n\n${translation}` })
+      });
     }
 
-    text += `⏰ ${new Date().toLocaleString("ru-RU", { timeZone: "Asia/Almaty" })}`;
-
-    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: TG_CHAT, text: text })
-    });
   } catch (e) {
     console.error("Telegram error:", e);
   }
