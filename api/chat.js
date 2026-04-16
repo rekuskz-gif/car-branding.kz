@@ -1,130 +1,101 @@
-// ID документа Google Docs где хранится инструкция для бота №1
+// ID документа Google Docs где хранится инструкция для бота
 const GOOGLE_DOC_ID = "1wndDcMgXu0I9H679onoXNbLzTlEiBnOzvvtQ7UYU2z4";
 
-// Токен Телеграм бота (берётся из секретных переменных сервера)
+// Токен Телеграм бота (берётся из секретных переменных Vercel)
 const TG_TOKEN = process.env.TG_TOKEN;
 
 // ID чата Телеграм куда слать историю переписки
 const TG_CHAT = process.env.TG_CHAT;
 
-// ========== ФУНКЦИЯ 1: Загрузка инструкции из Google Docs ==========
+// ФУНКЦИЯ 1: Загружает инструкцию из Google Docs
 async function loadPrompt() {
   try {
-    // Создаём ссылку для скачивания документа в виде текста
     const url = `https://docs.google.com/document/d/${GOOGLE_DOC_ID}/export?format=txt`;
-    
-    // Делаем запрос к Google Docs
     const response = await fetch(url);
-    
+    if (!response.ok) return "Ты Катя, консультант car-branding.kz";
+    let text = await response.text();
+    text = text.trim();
+    return text || "Ты Катя, консультант car-branding.kz";
+  } catch (e) {
+    return "Ты Катя, консультант car-branding.kz";
+  }
+}
 
-// ========== ФУНКЦИЯ 2: Отправка истории чата в Телеграм ==========
+// ФУНКЦИЯ 2: Отправляет историю чата в Телеграм
 async function sendToTelegram(messages) {
   try {
-    // Начинаем собирать текст сообщения
-    let text = "📋 История чата Катя:\n\n";
-    
-    // Перебираем все сообщения в чате
+    let text = "📋 История чата:\n\n";
     for (let msg of messages) {
       if (msg.role === "user") {
-        // Если сообщение от пользователя — добавляем с иконкой клиента
         text += `👤 Клиент: ${msg.content}\n\n`;
       } else {
-        // Если сообщение от бота — добавляем с иконкой бота
         text += `🤖 Амина: ${msg.content}\n\n`;
       }
     }
-    
-    // Отправляем собранный текст в Телеграм
     await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        chat_id: TG_CHAT, // куда отправить
-        text: text        // что отправить
-      })
+      body: JSON.stringify({ chat_id: TG_CHAT, text: text })
     });
   } catch (e) {
-    // Если Телеграм не ответил — просто пишем ошибку в лог
     console.error("Telegram error:", e);
   }
 }
 
-// ========== ГЛАВНАЯ ФУНКЦИЯ: Обрабатывает запросы от чат-бота ==========
+// ГЛАВНАЯ ФУНКЦИЯ: Обрабатывает запросы от сайта
 module.exports = async (req, res) => {
-
-  // Разрешаем запросы с любого сайта (защита от блокировки браузера)
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  
-  // Если браузер спрашивает "можно ли слать запросы?" — говорим да
   if (req.method === "OPTIONS") return res.status(200).end();
-  
-  // Если пришёл не POST запрос — отказываем
   if (req.method !== "POST") return res.status(405).json({ error: "Only POST" });
 
   try {
-    // Берём API ключ Claude из секретных переменных
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    
-    // Если ключа нет — возвращаем ошибку
-    if (!apiKey) return res.status(500).json({ error: "API Key not configured" });
-    
-    // Берём историю сообщений из запроса
+    if (!apiKey) return res.status(500).json({ error: "API Key не настроен" });
+
     const { messages } = req.body;
-    
-    // Если сообщений нет — возвращаем ошибку
-    if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "Messages required" });
-    
-    // Загружаем инструкцию для бота из Google Docs
+    if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "Нет сообщений" });
+
     const systemPrompt = await loadPrompt();
-    
-    // Отправляем запрос к Claude AI
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        "x-api-key": apiKey,           // наш ключ
-        "anthropic-version": "2023-06-01", // версия API
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
         "content-type": "application/json"
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001", // какую модель использовать
-        max_tokens: 300,           // максимум 300 слов в ответе
-        system: systemPrompt,      // инструкция для бота
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 300,
+        system: systemPrompt,
         messages: messages.map(msg => ({
-          role: msg.role,       // кто писал: user или assistant
-          content: msg.content  // текст сообщения
+          role: msg.role,
+          content: msg.content
         }))
       })
     });
-    
-    // Читаем ответ от Claude
+
     const data = await response.json();
-    
-    // Если Claude вернул ошибку — передаём её дальше
+
     if (!response.ok) {
       console.error("API Error:", data);
       return res.status(response.status).json({
         error: data.error?.message || "API Error",
-        choices: [{message: {content: "Ошибка API"}}] // это видит пользователь
+        choices: [{ message: { content: "Извините, попробуйте позже." } }]
       });
     }
-    
-    // Достаём текст ответа из ответа Claude
-    const botMessage = data.content?.[0]?.text || "Ошибка";
-    
-    // Отправляем историю чата в Телеграм
-    await sendToTelegram(messages);
-    
-    // Отправляем ответ бота обратно на сайт
-    res.status(200).json({ choices: [{message: {content: botMessage}}] });
+
+    const botMessage = data.content?.[0]?.text || "Извините, не могу ответить.";
+    await sendToTelegram([...messages, { role: "assistant", content: botMessage }]);
+    res.status(200).json({ choices: [{ message: { content: botMessage } }] });
 
   } catch (error) {
-    // Если что-то совсем сломалось — пишем в лог и отвечаем ошибкой
     console.error("Error:", error);
     res.status(500).json({
       error: "Server error",
-      choices: [{message: {content: "Ошибка сервера"}}]
+      choices: [{ message: { content: "Ошибка сервера." } }]
     });
   }
 };
