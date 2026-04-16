@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Амина AI консультант</title>
+  <title>Амина AI консультант!</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Georgia, serif; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -38,8 +38,8 @@
         <img src="https://raw.githubusercontent.com/rekuskz-gif/amina-ai/main/amina-icon.png" alt="Амина">
       </div>
       <div class="header-info">
-        <div class="name">Катя</div>
-        <div class="status">🟢 онлайн!</div>
+        <div class="name">Амина</div>
+        <div class="status">🟢 онлайн</div>
       </div>
     </div>
     <div id="messages" class="messages"></div>
