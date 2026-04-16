@@ -8,22 +8,22 @@ async function loadPrompt() {
     const response = await fetch(url);
     
     if (!response.ok) {
-      return "Ты Амина, консультант SEOkazmarket.kz";
+      return "Ты Катя, консультант";
     }
     
     let text = await response.text();
     text = text.trim();
     
-    return text || "Ты Амина, консультант SEOkazmarket.kz";
+    return text || "Ты Катя, консультантz";
     
   } catch (e) {
-    return "Ты Амина, консультант SEOkazmarket.kz";
+    return "Ты Катя, консультант";
   }
 }
 
 async function sendToTelegram(messages) {
   try {
-    let text = "📋 История чата Амины:\n\n";
+    let text = "📋 История чата Катя:\n\n";
     
     for (let msg of messages) {
       if (msg.role === "user") {
