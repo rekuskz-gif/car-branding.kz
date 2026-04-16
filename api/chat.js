@@ -5,7 +5,7 @@ const TG_CHAT = process.env.TG_CHAT;
 // 🔴 ДЕФОЛТНЫЙ ПРОМПТ НА СЛУЧАЙ ЕСЛИ GOOGLE DOC НЕ ЗАГРУЗИТСЯ
 const DEFAULT_PROMPT = `Ты Катя - AI консультант компании car-branding.kz.
 Специалист по брендированию автомобилей.
-ВАЖНО: Всегда отвечай ТОЛЬКО языке на котором тебепишет клиент. Никогда не используй другие языки.`;
+ВАЖНО: Всегда отвечай ТОЛЬКО языке на котором тебе пишет клиент в чате.`;
 
 async function loadPrompt() {
   try {
@@ -24,7 +24,7 @@ async function loadPrompt() {
     console.log("PROMPT LENGTH:", text.length);
     
     // 🔴 ДОБАВЛЯЕМ РУССКИЙ К ЛЮБОМУ ПРОМПТУ
-    const russianInstruction = "\n\nВАЖНО: Всегда отвечай ТОЛЬКО на языке которм тебе пишут клиент в чате.";
+    const russianInstruction = "\n\nВАЖНО: Всегда отвечай ТОЛЬКО на языке на котором тебе пишут клиент в чате.";
     
     return (text || DEFAULT_PROMPT) + russianInstruction;
     
