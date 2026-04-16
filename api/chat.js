@@ -1,4 +1,4 @@
-const GOOGLE_DOC_ID = process.env.GOOGLE_DOC_ID; // убрал хардкод
+const GOOGLE_DOC_ID = process.env.GOOGLE_DOC_ID;
 const TG_TOKEN = process.env.TG_TOKEN;
 const TG_CHAT = process.env.TG_CHAT;
 
@@ -29,11 +29,13 @@ async function sendToTelegram(messages) {
     }
     text += `⏰ ${new Date().toLocaleString("ru-RU", { timeZone: "Asia/Almaty" })}`;
 
-    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+    const tgRes = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: TG_CHAT, text })
+      body: JSON.stringify({ chat_id: TG_CHAT, text: text })
     });
+    const tgData = await tgRes.json();
+    console.log("Telegram response:", JSON.stringify(tgData));
 
   } catch (e) {
     console.error("Telegram error:", e);
@@ -77,7 +79,6 @@ module.exports = async (req, res) => {
 
     res.status(200).json({ choices: [{ message: { content: botMessage } }] });
 
-    // fire-and-forget — apiKey больше не нужен внутри
     sendToTelegram([...messages, { role: "assistant", content: botMessage }]);
 
   } catch (error) {
