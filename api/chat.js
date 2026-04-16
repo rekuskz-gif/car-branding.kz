@@ -1,4 +1,4 @@
-// ID документа Google Docs где хранится инструкция для бота
+// ID документа Google Docs где хранится инструкция для бота №1
 const GOOGLE_DOC_ID = "1wndDcMgXu0I9H679onoXNbLzTlEiBnOzvvtQ7UYU2z4";
 
 // Токен Телеграм бота (берётся из секретных переменных сервера)
