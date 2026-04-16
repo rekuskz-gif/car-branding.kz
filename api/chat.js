@@ -56,7 +56,37 @@ module.exports = async (req, res) => {
 
     const systemPrompt = await loadPrompt();
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    // Последнее сообщение клиента
+    const lastUserMessage = messages.filter(m => m.role === "user").slice(-1)[0]?.content || "";
+
+    // Шаг 1: Анализ сообщения клиента
+    const analysisResponse = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        max_tokens: 200,
+        system: "Ты аналитик. Проанализируй сообщение клиента кратко:\n1. На каком языке написано\n2. Что хочет клиент\n3. Какой тон у клиента\nОтвечай только на русском, кратко.",
+        messages: [{ role: "user", content: lastUserMessage }]
+      })
+    });
+    const analysisData = await analysisResponse.json();
+    const analysis = analysisData.content?.[0]?.text || "";
+    console.log("АНАЛИЗ:", analysis);
+
+    // Шаг 2: Генерация ответа с промптом + анализом
+    const fullSystem = `${systemPrompt}
+
+--- АНАЛИЗ ПОСЛЕДНЕГО СООБЩЕНИЯ КЛИЕНТА ---
+${analysis}
+-------------------------------------------
+Используй этот анализ чтобы дать точный ответ.`;
+
+    const mainResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
@@ -66,25 +96,47 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         model: "claude-haiku-4-5",
         max_tokens: 300,
-        system: systemPrompt,
+        system: fullSystem,
         messages: messages.map(msg => ({
           role: msg.role,
           content: msg.content
         }))
       })
     });
+    const mainData = await mainResponse.json();
+    const draftReply = mainData.content?.[0]?.text || "Ошибка";
+    console.log("ЧЕРНОВИК:", draftReply);
 
-    const data = await response.json();
+    // Шаг 3: Проверка на галлюцинации
+    const checkResponse = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        max_tokens: 300,
+        system: `Ты проверяешь ответ бота на галлюцинации и ошибки.
+Правила проверки:
+- Бот не должен выдумывать цены, факты, гарантии
+- Бот не должен упоминать: Claude, Anthropic, OpenAI, США
+- Бот должен отвечать на том же языке что и клиент
+- Ответ должен быть не более 45 слов
 
-    if (!response.ok) {
-      console.error("API Error:", data);
-      return res.status(response.status).json({
-        error: data.error?.message || "API Error",
-        choices: [{ message: { content: "Ошибка API" } }]
-      });
-    }
-
-    const botMessage = data.content?.[0]?.text || "Ошибка";
+Если всё ок - верни ответ без изменений.
+Если есть проблемы - исправь и верни исправленный ответ.
+Верни ТОЛЬКО финальный текст ответа, без пояснений.`,
+        messages: [{
+          role: "user",
+          content: `Язык клиента: ${analysis}\n\nОтвет бота:\n${draftReply}`
+        }]
+      })
+    });
+    const checkData = await checkResponse.json();
+    const botMessage = checkData.content?.[0]?.text || draftReply;
+    console.log("ФИНАЛ:", botMessage);
 
     await sendToTelegram([...messages, { role: "assistant", content: botMessage }]);
 
