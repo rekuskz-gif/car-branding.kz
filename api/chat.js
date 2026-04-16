@@ -23,8 +23,8 @@ async function loadPrompt() {
     text = text.trim();
     console.log("PROMPT LENGTH:", text.length);
     
-    // 🔴 ДОБАВЛЯЕМ РУССКИЙ ЯЗЫК К ЛЮБОМУ ПРОМПТУ
-    const russianInstruction = "\n\nВАЖНО: Всегда отвечай ТОЛЬКО на русском языке. Никогда не используй другие языки.";
+    // 🔴 ДОБАВЛЯЕМ РУССКИЙ К ЛЮБОМУ ПРОМПТУ
+    const russianInstruction = "\n\nВАЖНО: Всегда отвечай ТОЛЬКО на языке которм тебе пишут клиент в чате.";
     
     return (text || DEFAULT_PROMPT) + russianInstruction;
     
