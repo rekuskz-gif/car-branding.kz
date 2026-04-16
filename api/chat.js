@@ -1,4 +1,3 @@
-```javascript
 const GOOGLE_DOC_ID = "1wndDcMgXu0I9H679onoXNbLzTlEiBnOzvvtQ7UYU2z4";
 const TG_TOKEN = process.env.TG_TOKEN;
 const TG_CHAT = process.env.TG_CHAT;
@@ -19,11 +18,8 @@ async function sendToTelegram(messages, apiKey) {
   try {
     let text = "📋 История чата:\n\n";
     for (let msg of messages) {
-      if (msg.role === "user") {
-        text += `👤 Клиент: ${msg.content}\n\n`;
-      } else if (msg.role === "assistant") {
-        text += `🤖 Бот: ${msg.content}\n\n`;
-      }
+      if (msg.role === "user") text += `👤 Клиент: ${msg.content}\n\n`;
+      else if (msg.role === "assistant") text += `🤖 Бот: ${msg.content}\n\n`;
     }
     text += `⏰ ${new Date().toLocaleString("ru-RU", { timeZone: "Asia/Almaty" })}`;
 
@@ -33,7 +29,6 @@ async function sendToTelegram(messages, apiKey) {
       body: JSON.stringify({ chat_id: TG_CHAT, text: text })
     });
 
-    // Перевод последних сообщений
     const lastUser = messages.filter(m => m.role === "user").slice(-1)[0]?.content || "";
     const lastBot = messages.filter(m => m.role === "assistant").slice(-1)[0]?.content || "";
 
@@ -80,8 +75,8 @@ module.exports = async (req, res) => {
     const { messages } = req.body;
     if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "Messages required" });
 
-    // 🔥 Загружаем промпт параллельно с подготовкой
-    const [systemPrompt] = await Promise.all([loadPrompt()]);
+    // Сначала промпт — потом запрос
+    const systemPrompt = await loadPrompt();
 
     const mainResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -107,7 +102,7 @@ module.exports = async (req, res) => {
     // Отвечаем клиенту сразу
     res.status(200).json({ choices: [{ message: { content: botMessage } }] });
 
-    // Телеграм в фоне
+    // Телеграм в фоне без await
     sendToTelegram([...messages, { role: "assistant", content: botMessage }], apiKey);
 
   } catch (error) {
@@ -118,4 +113,3 @@ module.exports = async (req, res) => {
     });
   }
 };
-```
