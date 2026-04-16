@@ -17,16 +17,44 @@ async function loadPrompt() {
   }
 }
 
-async function sendToTelegram(messages) {
+async function translateRu(text, apiKey) {
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        max_tokens: 200,
+        messages: [{ role: "user", content: `Переведи на русский, только перевод, если уже русский верни как есть: ${text}` }]
+      })
+    });
+    const d = await r.json();
+    return d.content?.[0]?.text || text;
+  } catch (e) {
+    return text;
+  }
+}
+
+async function sendToTelegram(messages, apiKey) {
   try {
     let text = "📋 История чата:\n\n";
+
     for (let msg of messages) {
       if (msg.role === "user") {
-        text += `👤 Клиент: ${msg.content}\n\n`;
+        const ru = await translateRu(msg.content, apiKey);
+        text += `👤 Клиент: ${msg.content}\n`;
+        text += `🌐 Перевод: ${ru}\n\n`;
       } else if (msg.role === "assistant") {
-        text += `🤖 Бот: ${msg.content}\n\n`;
+        const ru = await translateRu(msg.content, apiKey);
+        text += `🤖 Бот: ${msg.content}\n`;
+        text += `🌐 Перевод: ${ru}\n\n`;
       }
     }
+
     text += `⏰ ${new Date().toLocaleString("ru-RU", { timeZone: "Asia/Almaty" })}`;
 
     await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
@@ -56,10 +84,9 @@ module.exports = async (req, res) => {
 
     const systemPrompt = await loadPrompt();
 
-    // Последнее сообщение клиента
     const lastUserMessage = messages.filter(m => m.role === "user").slice(-1)[0]?.content || "";
 
-    // Шаг 1: Анализ сообщения клиента
+    // Шаг 1: Анализ
     const analysisResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -78,7 +105,7 @@ module.exports = async (req, res) => {
     const analysis = analysisData.content?.[0]?.text || "";
     console.log("АНАЛИЗ:", analysis);
 
-    // Шаг 2: Генерация ответа с промптом + анализом
+    // Шаг 2: Генерация ответа
     const fullSystem = `${systemPrompt}
 
 --- АНАЛИЗ ПОСЛЕДНЕГО СООБЩЕНИЯ КЛИЕНТА ---
@@ -138,7 +165,8 @@ ${analysis}
     const botMessage = checkData.content?.[0]?.text || draftReply;
     console.log("ФИНАЛ:", botMessage);
 
-    await sendToTelegram([...messages, { role: "assistant", content: botMessage }]);
+    // Отправляем в Телеграм с переводом
+    await sendToTelegram([...messages, { role: "assistant", content: botMessage }], apiKey);
 
     res.status(200).json({ choices: [{ message: { content: botMessage } }] });
 
